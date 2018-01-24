@@ -12,11 +12,12 @@ class SimpleWasm {
     code = new Uint8Array(code);
     const module = await WebAssembly.compile(new Uint8Array(code));
     this.instance = await new WebAssembly.Instance(module, {env: this.env()})
-    this.memory = new Uint32Array(this.instance.exports.memory.buffer, 0, 10);
+    this.buffer = this.instance.exports.memory.buffer
+    this.memory = new Uint32Array(this.buffer, 0, 10);
   }
 
-  call(functionName, args) {
-    args = _.map(args, (value) => {
+  convertArraysToPointers(args) {
+    return _.map(args, (value) => {
       if(Array.isArray(value)) {
         _.each(value, (arrayValue, index) => {
           this.memory[index] = arrayValue;
@@ -26,7 +27,17 @@ class SimpleWasm {
         return value;
       }
     })
-    return this.instance.exports[functionName].call(null, ...args);
+  }
+
+  call(functionName, args, options = {}) {
+    args = this.convertArraysToPointers(args);
+    var returnValue = this.instance.exports[functionName].call(null, ...args);
+
+    if(options.returnType == "array") {
+      return new Uint32Array(this.buffer, returnValue, options.returnLength);
+    } else {
+      return returnValue;
+    }
   }
 
 

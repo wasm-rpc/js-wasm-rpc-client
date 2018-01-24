@@ -20,7 +20,7 @@ describe('SimpleWasm', function() {
     });
 
     it("echos values", async () => {
-      assert.equal(wasm.call("echo", 99), 99);
+      assert.equal(wasm.call("echo", [99]), 99);
     });
 
     it("calls exports", async () => {
@@ -33,10 +33,10 @@ describe('SimpleWasm', function() {
       });
       code = await readFile("./test/support/wasm/test.wasm");
       await wasm.load(code);
-      await wasm.call("call_exported_function", 102);
+      await wasm.call("call_exported_function", [102]);
     });
 
-    it.only("can pass array arguments", async () => {
+    it("can pass array arguments", async () => {
       wasm = new SimpleWasm({
         exports: {
           exportedFunction: () => null
@@ -45,6 +45,28 @@ describe('SimpleWasm', function() {
       code = await readFile("./test/support/wasm/test.wasm");
       await wasm.load(code);
       assert.equal(wasm.call("sum", [[1, 2, 3], 3]), 6);
+    })
+
+    it("can return arrays", async () => {
+      wasm = new SimpleWasm({
+        exports: {
+          exportedFunction: () => null
+        }
+      });
+      code = await readFile("./test/support/wasm/test.wasm");
+      await wasm.load(code);
+      assert.equal(wasm.call(
+        "add_n_to_each",
+        [
+          [1,2,3],
+          10
+        ],
+        {
+          returnType: "array",
+          returnLength: 3,
+        }).toString(),
+        [11, 12, 13].toString()
+      );
     })
   });
 });

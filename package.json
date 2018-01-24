@@ -2,7 +2,7 @@
   "name": "simple-wasm",
   "version": "1.0.0",
   "description": "Run WebAssembly without having to worry about array buffers or memory managment",
-  "main": "index.js",
+  "main": "src/simple-wasm.js",
   "scripts": {
     "test": "mocha test"
   },
