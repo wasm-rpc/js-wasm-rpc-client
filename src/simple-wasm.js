@@ -1,3 +1,4 @@
+const { StringDecoder } = require('string_decoder');
 const _ = require("lodash");
 
 class SimpleWasm {
@@ -10,10 +11,36 @@ class SimpleWasm {
 
   async load(code) {
     code = new Uint8Array(code);
+    this.memory = new WebAssembly.Memory({
+      initial: 256,
+      maximum: 512,
+    });
     const module = await WebAssembly.compile(new Uint8Array(code));
-    this.instance = await new WebAssembly.Instance(module, {env: this.env()})
-    this.buffer = this.instance.exports.memory.buffer
-    this.memory = new Uint32Array(this.buffer, 0, 10);
+    this.instance = await new WebAssembly.Instance(module, {
+      env: this.env()
+    })
+  }
+
+  writePointer(buffer) {
+    var memory = new Uint32Array(this.instance.exports.memory.buffer, 0, buffer.length);
+    memory[0] = buffer.length
+    this.writeMemory(buffer, 2)
+  }
+  writeMemory(buffer, offset = 0) {
+    var memory = new Uint32Array(this.instance.exports.memory.buffer, 0, buffer.length + offset);
+
+    for (var i = offset; i < buffer.length + offset; i++) {
+      memory[i] = buffer[i-offset];
+    }
+  }
+
+  readMemory(offset, length) {
+    return new Uint32Array(this.instance.exports.memory.buffer, offset, length);
+  }
+
+  readPointer(pointer) {
+      var [pointer, length] = this.readMemory(pointer, 2);
+      return this.readMemory(pointer, length);
   }
 
   convertArraysToPointers(args) {
@@ -30,14 +57,7 @@ class SimpleWasm {
   }
 
   call(functionName, args, options = {}) {
-    args = this.convertArraysToPointers(args);
-    var returnValue = this.instance.exports[functionName].call(null, ...args);
-
-    if(options.returnType == "array") {
-      return new Uint32Array(this.buffer, returnValue, options.returnLength);
-    } else {
-      return returnValue;
-    }
+    return this.instance.exports[functionName].call(null, 0);
   }
 
 
@@ -45,8 +65,13 @@ class SimpleWasm {
     return {
       memoryBase: 0,
       tableBase: 0,
-      memory: new WebAssembly.Memory({initial: 256}),
+      memory: this.memory,
       table: new WebAssembly.Table({initial: 0, element: 'anyfunc'}),
+      console_log: (ptr, len) => {
+        var buf = new Buffer(this.instance.exports.memory.buffer, ptr, 11)
+        const decoder = new StringDecoder('utf8');
+        console.log("SimpleWasm:   " + decoder.write(buf));
+      },
       ...this.exports,
     }
   }
