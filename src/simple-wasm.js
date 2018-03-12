@@ -9,6 +9,20 @@ class SimpleWasm {
     this.memoryOffset = 0;
   }
 
+  toBytesInt32 (num) {
+      var arr = new ArrayBuffer(4);
+      var view = new DataView(arr);
+      view.setUint32(0, num, true);
+      return new Uint8Array(arr);
+  }
+
+  fromBytesInt32 (buffer) {
+      var arr = new ArrayBuffer(4);
+      var view = new DataView(arr);
+      buffer.forEach((value, index) => view.setUint8(index, value));
+      return view.getUint32(0, true);
+  }
+
   async load(code) {
     code = new Uint8Array(code);
     this.memory = new WebAssembly.Memory({
@@ -22,25 +36,31 @@ class SimpleWasm {
   }
 
   writePointer(buffer) {
-    var memory = new Uint32Array(this.instance.exports.memory.buffer, 0, buffer.length);
-    memory[0] = buffer.length
-    this.writeMemory(buffer, 2)
+    const bufferWithLength = Buffer.concat([this.toBytesInt32(buffer.length), buffer]);
+    const pointer = this.instance.exports.allocate(bufferWithLength.length);
+    this.writeMemory(bufferWithLength, pointer);
+    return pointer;
   }
+
   writeMemory(buffer, offset = 0) {
-    var memory = new Uint32Array(this.instance.exports.memory.buffer, 0, buffer.length + offset);
-
-    for (var i = offset; i < buffer.length + offset; i++) {
-      memory[i] = buffer[i-offset];
-    }
+    var memory = new Uint8Array(this.instance.exports.memory.buffer, offset, buffer.length);
+    buffer.forEach((value, index) => memory[index]= value);
   }
 
-  readMemory(offset, length) {
-    return new Uint32Array(this.instance.exports.memory.buffer, offset, length);
+  readString(pointer) {
+    var length = this.fromBytesInt32(this.readMemory(pointer, 4));
+    var buf = new Buffer(this.readMemory(pointer + 4, length));
+    const decoder = new StringDecoder('utf8');
+    return decoder.write(buf);
   }
 
   readPointer(pointer) {
-      var [pointer, length] = this.readMemory(pointer, 2);
-      return this.readMemory(pointer, length);
+    var length = this.fromBytesInt32(this.readMemory(pointer, 4));
+    return this.readMemory(pointer + 4, length);
+  }
+
+  readMemory(offset, length) {
+    return new Uint8Array(this.instance.exports.memory.buffer, offset, length);
   }
 
   convertArraysToPointers(args) {
@@ -56,8 +76,22 @@ class SimpleWasm {
     })
   }
 
-  call(functionName, args, options = {}) {
-    return this.instance.exports[functionName].call(null, 0);
+  call(functionName, ...args) {
+    var resultPointer;
+
+    if (Buffer.isBuffer(args)) {
+      var argPointer = this.writePointer(args);
+      resultPointer = this.instance.exports[functionName].call(null, argPointer);
+      this.instance.exports.deallocate(argPointer);
+    } else {
+      console.log(functionName);
+      console.log(args);
+      console.log(this.instance.exports)
+      console.log(this.instance.exports.constructor(100))
+      resultPointer = this.instance.exports[functionName].call(null, ...args);
+    }
+
+    return resultPointer;
   }
 
 
