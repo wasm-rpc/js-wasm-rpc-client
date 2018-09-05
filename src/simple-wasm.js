@@ -1,5 +1,10 @@
+const {promisify} = require('util');
+const readFile = promisify(require("fs").readFile);
 const { StringDecoder } = require('string_decoder');
 const _ = require("lodash");
+const cbor = require("cbor");
+
+class SimpleWasmError extends Error {}
 
 class SimpleWasm {
   constructor ({exports} = {}) {
@@ -21,6 +26,11 @@ class SimpleWasm {
       var view = new DataView(arr);
       buffer.forEach((value, index) => view.setUint8(index, value));
       return view.getUint32(0, true);
+  }
+
+  async loadFile(file) {
+    let code = await readFile(file);
+    return await this.load(code);
   }
 
   async load(code) {
@@ -49,7 +59,7 @@ class SimpleWasm {
 
   readString(pointer) {
     var length = this.fromBytesInt32(this.readMemory(pointer, 4));
-    var buf = new Buffer(this.readMemory(pointer + 4, length));
+    var buf = Buffer.from(this.readMemory(pointer + 4, length));
     const decoder = new StringDecoder('utf8');
     return decoder.write(buf);
   }
@@ -63,35 +73,41 @@ class SimpleWasm {
     return new Uint8Array(this.instance.exports.memory.buffer, offset, length);
   }
 
-  convertArraysToPointers(args) {
+  encodeComplexTypes(args) {
     return _.map(args, (value) => {
-      if(Array.isArray(value)) {
-        _.each(value, (arrayValue, index) => {
-          this.memory[index] = arrayValue;
-        });
-        return this.memoryOffset++;
-      } else {
-        return value;
-      }
+      return this.writePointer(cbor.encode(value));
     })
   }
 
   call(functionName, ...args) {
     var resultPointer;
 
-    if (Buffer.isBuffer(args)) {
+    let argumentCount = this.instance.exports[functionName].length;
+    if(argumentCount != args.length) {
+      throw new Error(`${functionName} expected ${argumentCount} arguemnts but ${args.length} ${args.length == 1 ? 'was' : 'were'} given`);
+    } else if (Buffer.isBuffer(args)) {
       var argPointer = this.writePointer(args);
       resultPointer = this.instance.exports[functionName].call(null, argPointer);
       this.instance.exports.deallocate(argPointer);
     } else {
-      console.log(functionName);
-      console.log(args);
-      console.log(this.instance.exports)
-      console.log(this.instance.exports.constructor(100))
-      resultPointer = this.instance.exports[functionName].call(null, ...args);
+      resultPointer = this.instance.exports[functionName].call(null, ...this.encodeComplexTypes(args));
+    }
+    var statusCodeAndResult = this.readPointer(resultPointer);
+    var statusCode = this.fromBytesInt32(statusCodeAndResult.slice(0, 4));
+    var result;
+    var resultBytes = Buffer.from(statusCodeAndResult.slice(4));
+
+    if(resultBytes.length) {
+      result = cbor.decode(Buffer.from(resultBytes));
     }
 
-    return resultPointer;
+    if (statusCode) {
+      let error = new SimpleWasmError(result);
+      error.number = statusCode;
+      throw error;
+    } else {
+      return result;
+    }
   }
 
 
@@ -101,14 +117,17 @@ class SimpleWasm {
       tableBase: 0,
       memory: this.memory,
       table: new WebAssembly.Table({initial: 0, element: 'anyfunc'}),
-      console_log: (ptr, len) => {
-        var buf = new Buffer(this.instance.exports.memory.buffer, ptr, 11)
+      _print: (messagePtr) => {
+        let message = Buffer.from(this.readPointer(messagePtr));
         const decoder = new StringDecoder('utf8');
-        console.log("SimpleWasm:   " + decoder.write(buf));
+        console.log("SimpleWasm:   " + decoder.write(message));
       },
       ...this.exports,
     }
   }
 }
 
-module.exports = SimpleWasm;
+module.exports = {
+  default: SimpleWasm,
+  SimpleWasmError,
+};
