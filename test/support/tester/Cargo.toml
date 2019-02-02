@@ -1,0 +1,22 @@
+[package]
+name = "tester"
+version = "0.1.0"
+authors = ["Mason Fischer <mason@kissr.co>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+opt-level = "z"
+debug = false
+rpath = false
+lto = true
+debug-assertions = false
+codegen-units = 1
+panic = 'abort'
+incremental = false
+
+[dependencies]
+wasm-rpc = { path = "../../../../rust-wasm-rpc/wasm-rpc"}
+wasm-rpc-macros = { path = "../../../../rust-wasm-rpc/wasm-rpc-macros"}
+wee_alloc = { git = "https://github.com/rustwasm/wee_alloc" }
