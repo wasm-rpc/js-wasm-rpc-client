@@ -1,6 +1,6 @@
 {
   "name": "wasm-rpc",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "description": "Run WebAssembly without having to worry about array buffers or memory managment",
   "main": "src/WASMRPC.js",
   "scripts": {

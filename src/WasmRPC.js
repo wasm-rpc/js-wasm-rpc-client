@@ -47,9 +47,13 @@ class WasmRPC {
     })
   }
 
+  malloc(size) {
+    return this.instance.exports.__malloc(size)
+  }
+
   writePointer(buffer) {
     const bufferWithLength = Buffer.concat([this.toBytesInt32(buffer.length), buffer]);
-    const pointer = this.instance.exports.alloc(bufferWithLength.length);
+    const pointer = this.malloc(bufferWithLength.length);
     this.writeMemory(bufferWithLength, pointer);
     return pointer;
   }
@@ -118,7 +122,7 @@ class WasmRPC {
     return {
       memory: this.memory,
       table: new WebAssembly.Table({initial: 0, element: 'anyfunc'}),
-      _log_write: (logLevel, messagePtr) => {
+      __log_write: (logLevel, messagePtr) => {
 
         let messageBuffer = Buffer.from(this.readPointer(messagePtr));
         const decoder = new StringDecoder('utf8');
