@@ -1,13 +1,18 @@
 use wasm_rpc_macros::{export};
 use wasm_rpc::error::Error;
-use wasm_rpc::{Value, ObjectKey, BTreeMap};
+use wasm_rpc::{Value, ObjectKey, BTreeMap, Referenceable};
 use errors;
 
-const error_message: &'static str = "error message"
+const ERROR_MESSAGE: &'static str = "error message";
 
 #[export]
 pub fn add(a: i64, b: i64) -> Result<i64, Error> {
     Ok(a + b)
+}
+
+#[no_mangle]
+pub extern fn main() -> *const u8 {
+    Value::U64(1).as_pointer()
 }
 
 #[export]
@@ -38,7 +43,7 @@ pub fn eprintln(message: String) -> Result<Value, Error> {
 
 #[export]
 pub fn panic() -> Result<Value, Error> {
-    panic!(error_message)
+    panic!(ERROR_MESSAGE)
 }
 
 #[export]
