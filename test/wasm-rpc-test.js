@@ -26,12 +26,12 @@ describe('WasmRPC', function() {
         42,
         "test",
         {key: "value"},
-        new Buffer([1,2,3])
+        Buffer.from([1,2,3])
       ), [
         42,
         "test",
         {key: "value"},
-        new Buffer([1,2,3])
+        Buffer.from([1,2,3])
       ]);
     });
 

@@ -3,6 +3,8 @@ use wasm_rpc::error::Error;
 use wasm_rpc::{Value, ObjectKey, BTreeMap};
 use errors;
 
+const error_message: &'static str = "error message"
+
 #[export]
 pub fn add(a: i64, b: i64) -> Result<i64, Error> {
     Ok(a + b)
@@ -35,9 +37,8 @@ pub fn eprintln(message: String) -> Result<Value, Error> {
 }
 
 #[export]
-pub fn throw() -> Result<Value, Error> {
-    None::<Option<u32>>.unwrap();
-    Ok(Value::Null)
+pub fn panic() -> Result<Value, Error> {
+    panic!(error_message)
 }
 
 #[export]
