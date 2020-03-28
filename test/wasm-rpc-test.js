@@ -13,12 +13,8 @@ describe('Module', function() {
 
     beforeEach(async () => {
       let code = await readFile("./test/support/tester/dist/tester.wasm");
-      module = new Module(code);
+      module = new Instance(code);
       instance = await module.instantiate()
-    });
-
-    it.only("returns simple values", async () => {
-      assert.equal(await instance.main(), 1);
     });
 
     it("can handle complex types", async () => {
@@ -50,18 +46,12 @@ describe('Module', function() {
     });
 
     it("throws errors", async () => {
-      let spy = sinon.stub(process.stderr, 'write');
-      instance.panic().catch((error) => {
-        assert(spy.called);
-        spy.restore();
+      try {
+        await instance.panic()
+      } catch (error) {
+        assert(error.message === "unreachable")
         assert((error instanceof WebAssembly.RuntimeError))
-      })
-    });
-
-    it("returns error types", async () => {
-      instance.return_error().catch((error) => {
-        assert((error instanceof WasmRPCError))
-      })
+      }
     });
   });
 });
