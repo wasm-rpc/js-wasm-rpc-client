@@ -13,7 +13,7 @@
     "babel-plugin-transform-es2015-modules-commonjs": "^6.26.2",
     "borc": "^2.1.2",
     "microbundle": "0.12.0-next.8",
-    "mocha": "^7.1.1",
+    "mocha": "^10.2.0",
     "prettier": "^2.0.2"
   },
   "dependencies": {
